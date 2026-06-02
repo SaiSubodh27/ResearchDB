@@ -1,0 +1,3 @@
+# ResearchOS Backend - Chroma Vector Store
+
+This directory stores the Chroma vector database for embeddings and semantic search.
