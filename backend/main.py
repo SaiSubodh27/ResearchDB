@@ -20,11 +20,8 @@ app = FastAPI(title="ResearchOS Backend")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://research-db-three.vercel.app",
-        "http://localhost:5173",
-    ],
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
