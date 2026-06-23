@@ -1,5 +1,5 @@
 from pdf_parser import extract_text
-from backend.services.ai_provider import ask_llm
+from services.ai_provider import ask_llm
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent

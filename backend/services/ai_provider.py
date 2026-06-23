@@ -2,11 +2,11 @@
 
 from typing import Any, Dict, Tuple
 
-from backend.config import AI_PROVIDER
-from backend.services.groq_service import ask_llm as ask_groq
-from backend.services.groq_service import ask_llm_with_metadata as ask_groq_with_metadata
-from backend.services.groq_service import LLMProviderError, LLMTimeoutError
-from backend.services.ollama_service import ask_ollama_with_metadata
+from config import AI_PROVIDER
+from services.groq_service import ask_llm as ask_groq
+from services.groq_service import ask_llm_with_metadata as ask_groq_with_metadata
+from services.groq_service import LLMProviderError, LLMTimeoutError
+from services.ollama_service import ask_ollama_with_metadata
 
 
 def ask_llm(prompt: str) -> str:

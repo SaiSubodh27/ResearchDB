@@ -3,10 +3,10 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.database import Base, engine
-from backend.migrations import ensure_schema
-from backend import models
-from backend.routes.analysis import router as analysis_router
+from database import Base, engine
+from migrations import ensure_schema
+import models
+from routes.analysis import router as analysis_router
 
 logging.basicConfig(
     level=logging.INFO,

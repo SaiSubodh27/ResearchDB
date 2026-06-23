@@ -6,7 +6,7 @@ from typing import Any, Dict, Tuple
 
 from groq import APIConnectionError, APIError, APITimeoutError, Groq, RateLimitError
 
-from backend.config import (
+from config import (
     GROQ_MAX_RETRIES,
     GROQ_MODEL,
     GROQ_TIMEOUT_SECONDS,

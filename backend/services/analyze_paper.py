@@ -5,7 +5,7 @@ import logging
 import re
 from typing import Dict, List, Tuple
 
-from backend.services.ai_provider import ask_llm_with_metadata
+from services.ai_provider import ask_llm_with_metadata
 
 logger = logging.getLogger(__name__)
 

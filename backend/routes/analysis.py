@@ -5,17 +5,24 @@ from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from starlette.concurrency import run_in_threadpool
 
-from backend.database import get_db
-from backend.models import Citation, Dataset, Paper, PaperAnalysis
-from backend.schemas import AnalysisResponse
-from backend.services.ai_provider import LLMProviderError, LLMTimeoutError
-from backend.services.analyze_paper import analyze_paper_text
-from backend.services.citation_extractor import extract_citations
-from backend.services.dataset_extractor import extract_datasets
-from backend.services.pdf_parser import extract_text
+from database import get_db
+from models import Citation, Dataset, Paper, PaperAnalysis
+from schemas import (
+    AnalysisResponse,
+    CitationItem,
+    DatasetItem,
+    PaperDetail,
+    PaperSummary,
+    AnalysisDetail,
+)
+from services.ai_provider import LLMProviderError, LLMTimeoutError
+from services.analyze_paper import analyze_paper_text
+from services.citation_extractor import extract_citations
+from services.dataset_extractor import extract_datasets
+from services.pdf_parser import extract_text
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -24,6 +31,116 @@ UPLOAD_DIR = Path(__file__).resolve().parents[1] / "uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)
 
 MAX_UPLOAD_BYTES = 25 * 1024 * 1024
+
+
+# ───────────────────────── LIST PAPERS ─────────────────────────
+
+
+@router.get("/papers", response_model=list[PaperSummary])
+def list_papers(db: Session = Depends(get_db)):
+    """Return all analyzed papers, newest first."""
+    papers = (
+        db.query(Paper)
+        .options(joinedload(Paper.analysis), joinedload(Paper.citations), joinedload(Paper.datasets))
+        .order_by(Paper.uploaded_at.desc())
+        .all()
+    )
+
+    results: list[PaperSummary] = []
+    for paper in papers:
+        summary_preview = None
+        has_analysis = paper.analysis is not None
+        if has_analysis and paper.analysis.summary:
+            summary_preview = paper.analysis.summary[:160]
+
+        results.append(
+            PaperSummary(
+                id=paper.id,
+                filename=paper.filename,
+                uploaded_at=paper.uploaded_at,
+                has_analysis=has_analysis,
+                summary_preview=summary_preview,
+                citation_count=len(paper.citations),
+                dataset_count=len(paper.datasets),
+            )
+        )
+
+    return results
+
+
+# ───────────────────── GET PAPER DETAIL ────────────────────────
+
+
+@router.get("/papers/{paper_id}", response_model=PaperDetail)
+def get_paper(paper_id: int, db: Session = Depends(get_db)):
+    """Return full analysis, datasets, and citations for a paper."""
+    paper = (
+        db.query(Paper)
+        .options(joinedload(Paper.analysis), joinedload(Paper.citations), joinedload(Paper.datasets))
+        .filter(Paper.id == paper_id)
+        .first()
+    )
+    if not paper:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Paper not found.")
+
+    analysis_detail = None
+    if paper.analysis:
+        analysis_detail = AnalysisDetail(
+            id=paper.analysis.id,
+            summary=paper.analysis.summary,
+            research_problem=paper.analysis.research_problem,
+            methodology=paper.analysis.methodology,
+            key_findings=paper.analysis.key_findings,
+            future_work=paper.analysis.future_work,
+            created_at=paper.analysis.created_at,
+        )
+
+    return PaperDetail(
+        id=paper.id,
+        filename=paper.filename,
+        file_path=paper.file_path,
+        uploaded_at=paper.uploaded_at,
+        analysis=analysis_detail,
+        datasets=[
+            DatasetItem(name=d.name, source=d.source, url=d.url) for d in paper.datasets
+        ],
+        citations=[
+            CitationItem(citation_type=c.citation_type, value=c.value)
+            for c in paper.citations
+        ],
+    )
+
+
+# ───────────────────── DELETE PAPER ────────────────────────────
+
+
+@router.delete("/papers/{paper_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_paper(paper_id: int, db: Session = Depends(get_db)):
+    """Delete a paper and all related analysis/citations/datasets."""
+    paper = db.query(Paper).filter(Paper.id == paper_id).first()
+    if not paper:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Paper not found.")
+
+    # Attempt to remove the uploaded file from disk
+    try:
+        uploaded_file = Path(paper.file_path)
+        if uploaded_file.exists():
+            uploaded_file.unlink()
+    except OSError:
+        logger.warning("Could not delete uploaded file: %s", paper.file_path)
+
+    try:
+        db.delete(paper)
+        db.commit()
+    except SQLAlchemyError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Database error while deleting paper: {exc}",
+        ) from exc
+
+
+# ───────────────────── UPLOAD & ANALYZE ────────────────────────
 
 
 @router.post("/analyze", response_model=AnalysisResponse)
