@@ -58,7 +58,7 @@ type PaperDetailResponse = {
   citations: Array<{ citation_type: string; value: string }>;
 };
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000";
+const API_URL = import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8000";
 
 /* ────────────────────────── Component ────────────────────── */
 
@@ -91,7 +91,7 @@ export function Papers() {
   const fetchPapers = useCallback(async () => {
     setLoadingPapers(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/papers`);
+      const res = await fetch(`${API_URL}/papers`);
       if (res.ok) {
         const data: BackendPaper[] = await res.json();
         setBackendPapers(data);
@@ -150,7 +150,7 @@ export function Papers() {
     formData.append("file", selectedFile);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/analyze`, {
+      const response = await fetch(`${API_URL}/analyze`, {
         method: "POST",
         body: formData,
       });
@@ -202,7 +202,7 @@ export function Papers() {
     setPanelDetail(null);
 
     try {
-      const res = await fetch(`${API_BASE_URL}/papers/${paperId}`);
+      const res = await fetch(`${API_URL}/papers/${paperId}`);
       if (!res.ok) throw new Error("Failed to load paper.");
       const data: PaperDetailResponse = await res.json();
       setPanelDetail(data);
@@ -219,7 +219,7 @@ export function Papers() {
   async function handleDelete(paperId: number) {
     setDeletingId(paperId);
     try {
-      const res = await fetch(`${API_BASE_URL}/papers/${paperId}`, { method: "DELETE" });
+      const res = await fetch(`${API_URL}/papers/${paperId}`, { method: "DELETE" });
       if (!res.ok && res.status !== 204) throw new Error("Delete failed.");
       setBackendPapers((prev) => prev.filter((p) => p.id !== paperId));
       showToast("Paper deleted.", "success");
