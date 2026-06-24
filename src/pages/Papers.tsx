@@ -38,6 +38,11 @@ type BackendPaper = {
   summary_preview: string | null;
   citation_count: number;
   dataset_count: number;
+  domain: string | null;
+  authors: string | null;
+  source: string | null;
+  arxiv_id: string | null;
+  paper_url: string | null;
 };
 
 type PaperDetailResponse = {
@@ -45,6 +50,10 @@ type PaperDetailResponse = {
   filename: string;
   file_path: string;
   uploaded_at: string | null;
+  domain: string | null;
+  authors: string | null;
+  source: string | null;
+  paper_url: string | null;
   analysis: {
     id: number;
     summary: string;
@@ -60,10 +69,13 @@ type PaperDetailResponse = {
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8000";
 
+const DOMAINS = ["All", "AI/ML", "Battery/Materials", "Biomedical", "Finance", "Cybersecurity", "Manual"];
+
 /* ────────────────────────── Component ────────────────────── */
 
 export function Papers() {
   const [search, setSearch] = useState("");
+  const [activeDomain, setActiveDomain] = useState<string>("All");
 
   // Upload + inline analysis
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -119,12 +131,21 @@ export function Papers() {
     [search],
   );
 
+  /* ── Filtered backend papers (search + domain) ── */
+
   const filteredBackend = useMemo(
     () =>
-      backendPapers.filter((p) =>
-        p.filename.toLowerCase().includes(search.toLowerCase()),
-      ),
-    [backendPapers, search],
+      backendPapers.filter((p) => {
+        const matchesSearch = p.filename.toLowerCase().includes(search.toLowerCase());
+        const matchesDomain =
+          activeDomain === "All"
+            ? true
+            : activeDomain === "Manual"
+              ? p.source === "manual" || !p.source
+              : p.domain === activeDomain;
+        return matchesSearch && matchesDomain;
+      }),
+    [backendPapers, search, activeDomain],
   );
 
   /* ── File change handler ── */
@@ -181,11 +202,7 @@ export function Papers() {
 
       setAnalysis(data);
       showToast("Paper analyzed and saved successfully!", "success");
-
-      // Refresh the papers list so the new paper appears
       fetchPapers();
-
-      // Reset file input
       setSelectedFile(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Analysis failed.");
@@ -337,6 +354,36 @@ export function Papers() {
         )}
       </section>
 
+      {/* ─── Domain Filter Tabs ─── */}
+      <div className="flex gap-2 flex-wrap">
+        {DOMAINS.map((domain) => {
+          const count =
+            domain === "All"
+              ? backendPapers.length
+              : domain === "Manual"
+                ? backendPapers.filter((p) => p.source === "manual" || !p.source).length
+                : backendPapers.filter((p) => p.domain === domain).length;
+          return (
+            <button
+              key={domain}
+              onClick={() => setActiveDomain(domain)}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${activeDomain === domain
+                  ? "bg-accent text-white"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+            >
+              {domain}
+              <span
+                className={`ml-1.5 ${activeDomain === domain ? "text-white/70" : "text-gray-400"
+                  }`}
+              >
+                {count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
       {/* ─── Search ─── */}
       <SearchBar
         value={search}
@@ -355,6 +402,7 @@ export function Papers() {
               <thead className="border-b border-border-light bg-gray-50/80">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-600">Filename</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 hidden lg:table-cell">Domain</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 hidden md:table-cell">Uploaded</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 hidden sm:table-cell">Citations</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 hidden sm:table-cell">Datasets</th>
@@ -367,6 +415,7 @@ export function Papers() {
                   Array.from({ length: 3 }).map((_, i) => (
                     <tr key={`skel-${i}`} className="border-b border-border-light animate-pulse">
                       <td className="px-4 py-4"><div className="h-4 bg-gray-200 rounded w-3/4" /></td>
+                      <td className="px-4 py-4 hidden lg:table-cell"><div className="h-4 bg-gray-200 rounded w-16" /></td>
                       <td className="px-4 py-4 hidden md:table-cell"><div className="h-4 bg-gray-200 rounded w-20" /></td>
                       <td className="px-4 py-4 hidden sm:table-cell"><div className="h-4 bg-gray-200 rounded w-8" /></td>
                       <td className="px-4 py-4 hidden sm:table-cell"><div className="h-4 bg-gray-200 rounded w-8" /></td>
@@ -381,17 +430,45 @@ export function Papers() {
                       className="border-b border-border-light hover:bg-accent/[.03] transition-colors cursor-pointer group"
                       onClick={() => handleViewPaper(paper.id)}
                     >
+                      {/* Filename + badge + authors + preview */}
                       <td className="px-4 py-4">
                         <div className="flex items-center gap-2">
                           <FileText size={16} className="text-accent flex-shrink-0" />
-                          <span className="font-medium text-sidebar truncate max-w-[260px]">{paper.filename}</span>
+                          <span className="font-medium text-sidebar truncate max-w-[260px]">
+                            {paper.filename}
+                          </span>
+                          <span
+                            className={`px-1.5 py-0.5 rounded text-xs font-medium ${paper.source === "arxiv"
+                                ? "bg-purple-100 text-purple-700"
+                                : "bg-blue-100 text-blue-700"
+                              }`}
+                          >
+                            {paper.source ?? "manual"}
+                          </span>
                         </div>
+                        {paper.authors && (
+                          <p className="text-xs text-gray-400 mt-0.5 truncate max-w-xs">
+                            {paper.authors}
+                          </p>
+                        )}
                         {paper.summary_preview && (
                           <p className="text-xs text-gray-400 mt-1 line-clamp-1 max-w-xs">
                             {paper.summary_preview}
                           </p>
                         )}
                       </td>
+
+                      {/* Domain */}
+                      <td className="px-4 py-4 hidden lg:table-cell">
+                        {paper.domain ? (
+                          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-accent/10 text-accent">
+                            {paper.domain}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400 text-xs">—</span>
+                        )}
+                      </td>
+
                       <td className="px-4 py-4 text-gray-500 hidden md:table-cell">
                         {paper.uploaded_at ? formatDate(paper.uploaded_at) : "—"}
                       </td>
@@ -490,6 +567,18 @@ export function Papers() {
               </p>
             )}
 
+            {/* arxiv link */}
+            {panelDetail.paper_url && (
+              <a
+                href={panelDetail.paper_url}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs text-accent hover:underline"
+              >
+                View on arxiv →
+              </a>
+            )}
+
             {panelDetail.analysis ? (
               <>
                 <PanelSection title="Summary" value={panelDetail.analysis.summary} />
@@ -559,11 +648,10 @@ export function Papers() {
       {/* ─── Toast ─── */}
       {toast && (
         <div
-          className={`fixed bottom-5 right-5 z-50 flex items-center gap-3 rounded-card border px-4 py-3 text-sm font-medium shadow-lg animate-in ${
-            toast.type === "success"
+          className={`fixed bottom-5 right-5 z-50 flex items-center gap-3 rounded-card border px-4 py-3 text-sm font-medium shadow-lg animate-in ${toast.type === "success"
               ? "border-green-200 bg-green-50 text-green-800"
               : "border-red-200 bg-red-50 text-red-800"
-          }`}
+            }`}
         >
           <span>{toast.message}</span>
           <button onClick={() => setToast(null)} className="p-0.5 hover:opacity-70">

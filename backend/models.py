@@ -14,6 +14,14 @@ class Paper(Base):
     file_path = Column(String(500), nullable=False)
     uploaded_at = Column(DateTime(timezone=True), server_default=func.now())
 
+    # New arxiv automation fields
+    domain = Column(String(100), nullable=True)
+    arxiv_id = Column(String(100), nullable=True, unique=True)
+    authors = Column(Text, nullable=True)
+    published_date = Column(String(20), nullable=True)
+    source = Column(String(20), default="manual")
+    paper_url = Column(Text, nullable=True)
+
     analysis = relationship("PaperAnalysis", back_populates="paper", uselist=False)
     citations = relationship("Citation", back_populates="paper", cascade="all, delete")
     datasets = relationship("Dataset", back_populates="paper", cascade="all, delete")

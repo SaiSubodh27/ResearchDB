@@ -7,3 +7,5 @@ pymupdf
 pydantic
 psycopg2-binary
 python-multipart
+arxiv
+apscheduler

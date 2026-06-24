@@ -43,6 +43,11 @@ class PaperSummary(BaseModel):
     summary_preview: Optional[str] = None
     citation_count: int = 0
     dataset_count: int = 0
+    domain: Optional[str] = None
+    authors: Optional[str] = None
+    source: Optional[str] = None
+    arxiv_id: Optional[str] = None
+    paper_url: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -70,6 +75,10 @@ class PaperDetail(BaseModel):
     filename: str
     file_path: str
     uploaded_at: Optional[datetime] = None
+    domain: Optional[str] = None
+    authors: Optional[str] = None
+    source: Optional[str] = None
+    paper_url: Optional[str] = None
     analysis: Optional[AnalysisDetail] = None
     datasets: List[DatasetItem] = []
     citations: List[CitationItem] = []
