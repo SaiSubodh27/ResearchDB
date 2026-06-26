@@ -1,5 +1,6 @@
 import logging
 from contextlib import asynccontextmanager
+import os
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -96,3 +97,10 @@ def trigger_pipeline():
 @app.get("/")
 def home():
     return {"message": "ResearchOS Backend Running"}
+@app.get("/debug-email")
+def debug_email():
+    return {
+        "EMAIL_SENDER": os.getenv("EMAIL_SENDER"),
+        "EMAIL_PASSWORD": "set" if os.getenv("EMAIL_PASSWORD") else "NOT SET",
+        "EMAIL_RECEIVER": os.getenv("EMAIL_RECEIVER"),
+    }
