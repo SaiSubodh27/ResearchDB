@@ -7,38 +7,30 @@ from email.mime.text import MIMEText
 from datetime import date
 from typing import List, Dict
 import os
-from dotenv import load_dotenv
-load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-EMAIL_SENDER = os.getenv("EMAIL_SENDER")
-EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
-EMAIL_RECEIVER = os.getenv("EMAIL_RECEIVER")
-
 
 def send_daily_digest(results: List[Dict]) -> bool:
-    """
-    Send daily digest email with all fetched papers.
-    Returns True if sent successfully, False otherwise.
-    """
-    if not EMAIL_SENDER or not EMAIL_PASSWORD:
+    email_sender = os.getenv("EMAIL_SENDER")
+    email_password = os.getenv("EMAIL_PASSWORD")
+    email_receiver = os.getenv("EMAIL_RECEIVER")
+
+    if not email_sender or not email_password:
         logger.error("Email credentials not configured!")
         return False
 
     try:
         subject, html_body = _build_email(results)
-
         msg = MIMEMultipart("alternative")
         msg["Subject"] = subject
-        msg["From"] = EMAIL_SENDER
-        msg["To"] = EMAIL_RECEIVER
-
+        msg["From"] = email_sender
+        msg["To"] = email_receiver
         msg.attach(MIMEText(html_body, "html"))
 
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-            server.login(EMAIL_SENDER, EMAIL_PASSWORD)
-            server.sendmail(EMAIL_SENDER, EMAIL_RECEIVER, msg.as_string())
+            server.login(email_sender, email_password)
+            server.sendmail(email_sender, email_receiver, msg.as_string())
 
         logger.info("Daily digest email sent successfully!")
         return True
@@ -48,18 +40,42 @@ def send_daily_digest(results: List[Dict]) -> bool:
         return False
 
 
+def send_test_email() -> bool:
+    email_sender = os.getenv("EMAIL_SENDER")
+    email_password = os.getenv("EMAIL_PASSWORD")
+    email_receiver = os.getenv("EMAIL_RECEIVER")
+
+    if not email_sender or not email_password:
+        logger.error("Email credentials not configured!")
+        return False
+
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = "✅ ResearchDB Email Test"
+        msg["From"] = email_sender
+        msg["To"] = email_receiver
+        msg.attach(MIMEText("<h2>Email is working!</h2>", "html"))
+
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(email_sender, email_password)
+            server.sendmail(email_sender, email_receiver, msg.as_string())
+
+        logger.info("Test email sent successfully!")
+        return True
+
+    except Exception as e:
+        logger.error(f"Test email failed: {e}")
+        return False
+
+
 def _build_email(results: List[Dict]):
-    """Build subject and HTML body for digest email."""
     today = date.today().strftime("%d %B %Y")
     total_saved = sum(r.get("saved", 0) for r in results)
-
     subject = f"📚 ResearchDB Daily Digest — {today} ({total_saved} new papers)"
 
-    # Build HTML
     html = f"""
     <html>
     <body style="font-family: Arial, sans-serif; max-width: 700px; margin: auto; padding: 20px;">
-
         <h1 style="color: #1a1a2e; border-bottom: 3px solid #6c63ff; padding-bottom: 10px;">
             📚 ResearchDB Daily Digest
         </h1>
@@ -77,13 +93,12 @@ def _build_email(results: List[Dict]):
         if saved == 0:
             continue
 
-        # Domain color mapping
         colors = {
-            "AI/ML":             "#6c63ff",
+            "AI/ML": "#6c63ff",
             "Battery/Materials": "#00b894",
-            "Biomedical":        "#e17055",
-            "Finance":           "#fdcb6e",
-            "Cybersecurity":     "#d63031"
+            "Biomedical": "#e17055",
+            "Finance": "#fdcb6e",
+            "Cybersecurity": "#d63031"
         }
         color = colors.get(domain, "#6c63ff")
 

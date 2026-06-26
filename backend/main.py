@@ -106,3 +106,13 @@ def debug_email():
         "EMAIL_PASSWORD_LENGTH": len(pwd) if pwd else 0,
         "EMAIL_RECEIVER": os.getenv("EMAIL_RECEIVER"),
     }
+@app.get("/test-email")
+def test_email():
+    from services.email_service import send_test_email
+    success = send_test_email()
+    return {"email_sent": success}
+@app.get("/test-email")
+def test_email():
+    from services.email_service import send_test_email
+    success = send_test_email()
+    return {"email_sent": success}
