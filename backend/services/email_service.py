@@ -1,71 +1,63 @@
 """Email digest service for ResearchDB."""
 
-import smtplib
 import logging
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 from datetime import date
 from typing import List, Dict
 import os
+import urllib.request
+import urllib.error
+import json
 
 logger = logging.getLogger(__name__)
 
 
-def send_daily_digest(results: List[Dict]) -> bool:
+def _send_via_sendgrid(subject: str, html_body: str) -> bool:
+    api_key = os.getenv("SENDGRID_API_KEY")
     email_sender = os.getenv("EMAIL_SENDER")
-    email_password = os.getenv("EMAIL_PASSWORD")
     email_receiver = os.getenv("EMAIL_RECEIVER")
 
-    if not email_sender or not email_password:
-        logger.error("Email credentials not configured!")
+    if not api_key or not email_sender:
+        logger.error("SendGrid credentials not configured!")
         return False
+
+    payload = json.dumps({
+        "personalizations": [{"to": [{"email": email_receiver}]}],
+        "from": {"email": email_sender},
+        "subject": subject,
+        "content": [{"type": "text/html", "value": html_body}]
+    }).encode("utf-8")
+
+    req = urllib.request.Request(
+        "https://api.sendgrid.com/v3/mail/send",
+        data=payload,
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        method="POST"
+    )
 
     try:
-        subject, html_body = _build_email(results)
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = subject
-        msg["From"] = email_sender
-        msg["To"] = email_receiver
-        msg.attach(MIMEText(html_body, "html"))
-
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-            server.login(email_sender, email_password)
-            server.sendmail(email_sender, email_receiver, msg.as_string())
-
-        logger.info("Daily digest email sent successfully!")
-        return True
-
-    except Exception as e:
-        logger.error(f"Failed to send email: {e}")
+        with urllib.request.urlopen(req) as resp:
+            logger.info("Email sent! Status: %s", resp.status)
+            return True
+    except urllib.error.HTTPError as e:
+        logger.error("SendGrid error: %s %s", e.code, e.read().decode())
         return False
+    except Exception as e:
+        logger.error("Email failed: %s", e)
+        return False
+
+
+def send_daily_digest(results: List[Dict]) -> bool:
+    subject, html_body = _build_email(results)
+    return _send_via_sendgrid(subject, html_body)
 
 
 def send_test_email() -> bool:
-    email_sender = os.getenv("EMAIL_SENDER")
-    email_password = os.getenv("EMAIL_PASSWORD")
-    email_receiver = os.getenv("EMAIL_RECEIVER")
-
-    if not email_sender or not email_password:
-        logger.error("Email credentials not configured!")
-        return False
-
-    try:
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = "✅ ResearchDB Email Test"
-        msg["From"] = email_sender
-        msg["To"] = email_receiver
-        msg.attach(MIMEText("<h2>Email is working!</h2>", "html"))
-
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-            server.login(email_sender, email_password)
-            server.sendmail(email_sender, email_receiver, msg.as_string())
-
-        logger.info("Test email sent successfully!")
-        return True
-
-    except Exception as e:
-        logger.error(f"Test email failed: {e}")
-        return False
+    subject = "✅ ResearchDB Email Test"
+    html_body = "<h2>Email is working via SendGrid!</h2>"
+    return _send_via_sendgrid(subject, html_body)
 
 
 def _build_email(results: List[Dict]):
