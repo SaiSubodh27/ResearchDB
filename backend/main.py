@@ -99,8 +99,10 @@ def home():
     return {"message": "ResearchOS Backend Running"}
 @app.get("/debug-email")
 def debug_email():
+    pwd = os.getenv("EMAIL_PASSWORD")
     return {
         "EMAIL_SENDER": os.getenv("EMAIL_SENDER"),
-        "EMAIL_PASSWORD": "set" if os.getenv("EMAIL_PASSWORD") else "NOT SET",
+        "EMAIL_PASSWORD": "set" if pwd else "NOT SET",
+        "EMAIL_PASSWORD_LENGTH": len(pwd) if pwd else 0,
         "EMAIL_RECEIVER": os.getenv("EMAIL_RECEIVER"),
     }
